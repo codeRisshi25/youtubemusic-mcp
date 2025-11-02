@@ -1,18 +1,12 @@
 # YouTube Music MCP Server# 🎵 YouTube Music MCP Server
 
-
-
 <div align="center">A powerful Model Context Protocol (MCP) server that connects YouTube Music to AI assistants like Claude. Access your music library, get recommendations, search for songs, create playlists, and discover new music through natural language conversations.
-
-
 
 ![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)## ✨ Features
 
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ![MCP](https://img.shields.io/badge/MCP-1.0-purple.svg)This MCP server provides 7 powerful tools:
-
-
 
 A powerful Model Context Protocol (MCP) server that gives AI assistants seamless access to YouTube Music. Built with Python and the official ytmusicapi.1. **`get_liked_songs_count`** - Get total count of songs in your library (bypasses YouTube's 5000 display limit)
 
@@ -28,23 +22,15 @@ A powerful Model Context Protocol (MCP) server that gives AI assistants seamless
 
 ---7. **`create_playlist_from_songs`** - Create playlists and automatically add songs to them
 
-
-
 ## 🎵 Features## 🚀 Quick Start
 
-
-
 This production-ready MCP server provides **7 comprehensive tools** for music discovery, library management, and playlist creation:### Prerequisites
-
-
 
 ### 📊 Library Management- **Python 3.10 or higher**
 
 - **`get_liked_songs_count`** - Get total count of your liked songs- A YouTube Music account with songs in your library
 
 - **`get_library_stats`** - Comprehensive library statistics (songs, playlists, artists, albums)- Access to browser developer tools (for browser authentication) OR ability to set up OAuth
-
-
 
 ### 🔍 Discovery & Search### Installation
 
@@ -62,11 +48,7 @@ git clone <your-repo-url>
 
 - **`create_playlist_from_songs`** - Create custom playlists from song queries```
 
-
-
 ---2. **Install dependencies**
-
-
 
 ## 📋 Requirements```bash
 
@@ -78,19 +60,13 @@ pip install -e .
 
 - **OS**: Linux, macOS, or WindowsOr if you want development dependencies:
 
-
-
 ---```bash
 
 pip install -e ".[dev]"
 
 ## 🚀 Installation```
 
-
-
 ### Quick Start3. **Set up authentication** (see detailed instructions below)
-
-
 
 1. **Clone the repository**Choose ONE of these methods:
 
@@ -106,7 +82,7 @@ cd youtubemusic-mcp- **Browser Auth** - Simpler to set up, but requires manual c
 
 2. **Set up Python environment**
 
-```bash#### Method 1: OAuth Authentication (Recommended)
+````bash#### Method 1: OAuth Authentication (Recommended)
 
 # Create virtual environment
 
@@ -248,7 +224,7 @@ See the [**Claude Desktop Setup Guide**](docs/CLAUDE_SETUP.md) for complete inst
 
 ### Quick Setupnpx @modelcontextprotocol/inspector python server.py
 
-```
+````
 
 1. Locate your Claude config file:
 
@@ -258,11 +234,9 @@ See the [**Claude Desktop Setup Guide**](docs/CLAUDE_SETUP.md) for complete inst
 
    - **Linux**: `~/.config/Claude/claude_desktop_config.json`## 🤖 Connecting to Claude Desktop
 
-
-
 2. Add the server configuration (use **absolute paths**):### macOS/Linux
 
-```json
+````json
 
 {1. **Edit Claude Desktop config**
 
@@ -280,33 +254,29 @@ See the [**Claude Desktop Setup Guide**](docs/CLAUDE_SETUP.md) for complete inst
 
 }code ~/.config/Claude/claude_desktop_config.json
 
-``````
-
-
+````
 
 3. Restart Claude Desktop2. **Add the server configuration**
 
-
-
 4. Start chatting! Try:```json
 
-   - *"How many songs have I liked on YouTube Music?"*{
+   - _"How many songs have I liked on YouTube Music?"_{
 
-   - *"What are my top 5 artists?"*  "mcpServers": {
+   - _"What are my top 5 artists?"_ "mcpServers": {
 
-   - *"Search for songs by The Weeknd"*    "youtube-music": {
+   - _"Search for songs by The Weeknd"_ "youtube-music": {
 
-   - *"Create a playlist called 'Road Trip' with upbeat rock songs"*      "command": "python",
+   - _"Create a playlist called 'Road Trip' with upbeat rock songs"_ "command": "python",
 
-      "args": ["/absolute/path/to/youtube-music-mcp/server.py"]
+     "args": ["/absolute/path/to/youtube-music-mcp/server.py"]
 
----    }
+--- }
 
-  }
+}
 
 ## 🛠 Available Tools}
 
-```
+`````
 
 ### `get_liked_songs_count`
 
@@ -476,13 +446,11 @@ Create a new YouTube Music playlist from song queries.- **Async:** Native Python
 
 - `description` (string, optional): Playlist descriptionpytest
 
-```
+`````
 
-**Example prompt**: 
+**Example prompt**:
 
-*"Create a playlist called 'Workout Mix' with these songs: 'Eye of the Tiger', 'Stronger by Kanye West', 'Lose Yourself'"*### Code Formatting
-
-
+_"Create a playlist called 'Workout Mix' with these songs: 'Eye of the Tiger', 'Stronger by Kanye West', 'Lose Yourself'"_### Code Formatting
 
 ---```bash
 
@@ -490,7 +458,7 @@ black server.py
 
 ## 🐛 Troubleshootingruff check server.py
 
-```
+````
 
 ### Authentication Errors
 
@@ -560,7 +528,7 @@ source venv/bin/activate  # or venv\Scripts\activate on Windows
 
 pip install -e .**Problem:** Claude doesn't show the youtube-music server.
 
-```
+````
 
 **Solution:**
 
@@ -570,21 +538,23 @@ pip install -e .**Problem:** Claude doesn't show the youtube-music server.
 
 **Problem**: Server crashes or exits immediately
 
-   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
-**Solution**:   - Linux: `~/.config/Claude/claude_desktop_config.json`
+**Solution**: - Linux: `~/.config/Claude/claude_desktop_config.json`
 
-1. Check that `browser.json` or `oauth.json` exists   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+1. Check that `browser.json` or `oauth.json` exists - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
 2. Test authentication manually:
 
-   ```bash2. **Verify the path is absolute:**
+   ````bash2. **Verify the path is absolute:**
 
    python3 -c "from ytmusicapi import YTMusic; yt = YTMusic('browser.json'); print('✅ Auth works!')"
 
    ```   - Use full path like `/Users/yourname/projects/youtube-music-mcp/server.py`
 
-3. Run server directly to see errors:   - Don't use `~` or relative paths
+   ````
+
+3. Run server directly to see errors: - Don't use `~` or relative paths
 
    ```bash   - On Windows, use backslashes: `C:\\Users\\...`
 
@@ -592,53 +562,53 @@ pip install -e .**Problem:** Claude doesn't show the youtube-music server.
 
    ```3. **Check Python is in PATH:**
 
-
-
----   ```bash
-
-   which python  # macOS/Linux
-
-## 📁 Project Structure   where python  # Windows
-
    ```
+
+--- ```bash
+
+which python # macOS/Linux
+
+## 📁 Project Structure where python # Windows
+
+```
 
 ```
 
 youtubemusic-mcp/4. **Restart Claude Desktop completely:**
 
-├── server.py                   # Main MCP server implementation
+├── server.py # Main MCP server implementation
 
-├── pyproject.toml              # Python project configuration & dependencies   - Quit Claude (not just close the window)
+├── pyproject.toml # Python project configuration & dependencies - Quit Claude (not just close the window)
 
-├── README.md                   # This file   - Wait a few seconds
+├── README.md # This file - Wait a few seconds
 
-├── LICENSE                     # MIT license   - Reopen Claude
+├── LICENSE # MIT license - Reopen Claude
 
-├── .gitignore                  # Git ignore rules (excludes auth files)
+├── .gitignore # Git ignore rules (excludes auth files)
 
 │5. **Check Claude's logs for errors:**
 
-├── docs/                       # Documentation   - macOS: `~/Library/Logs/Claude/`
+├── docs/ # Documentation - macOS: `~/Library/Logs/Claude/`
 
-│   ├── CLAUDE_SETUP.md         # Claude Desktop integration guide   - Look for error messages related to MCP servers
+│ ├── CLAUDE_SETUP.md # Claude Desktop integration guide - Look for error messages related to MCP servers
 
-│   ├── OAUTH_SETUP.md          # OAuth authentication guide
+│ ├── OAUTH_SETUP.md # OAuth authentication guide
 
-│   └── CONTRIBUTING.md         # Contribution guidelines### "Empty library results"
-
-│
-
-├── examples/                   # Example files**Problem:** Library methods return no results even though you have songs.
-
-│   ├── oauth.json.example      # OAuth configuration template
-
-│   └── browser.json.example    # Browser auth template**Solution:**
+│ └── CONTRIBUTING.md # Contribution guidelines### "Empty library results"
 
 │
 
-└── venv/                       # Virtual environment (not in git)1. Make sure you're logged into the correct YouTube Music account
+├── examples/ # Example files**Problem:** Library methods return no results even though you have songs.
 
-```2. Try switching to OAuth authentication if using browser auth
+│ ├── oauth.json.example # OAuth configuration template
+
+│ └── browser.json.example # Browser auth template**Solution:**
+
+│
+
+└── venv/ # Virtual environment (not in git)1. Make sure you're logged into the correct YouTube Music account
+
+````2. Try switching to OAuth authentication if using browser auth
 
 3. Check that your YouTube Music library actually has content (not YouTube premium library)
 
@@ -803,7 +773,7 @@ This MCP server provides 7 powerful tools:
 ```bash
 git clone <your-repo-url>
 cd youtube-music-mcp
-```
+````
 
 2. **Install dependencies**
 

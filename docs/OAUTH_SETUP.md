@@ -55,14 +55,17 @@ This guide explains how to set up OAuth authentication for the YouTube Music MCP
 ### Configure OAuth Consent Screen
 
 **App information**:
+
 - **App name**: `YouTube Music MCP Server`
 - **User support email**: Your email
 - **App logo**: (optional)
 
 **App domain** (optional):
+
 - Leave blank for personal use
 
 **Developer contact information**:
+
 - **Email addresses**: Your email
 
 Click **"SAVE AND CONTINUE"**
@@ -134,11 +137,11 @@ python3 -m ytmusicapi oauth
 1. The command will display a URL
 2. **Copy the URL** and open it in your browser
 3. **Sign in** with your Google account (the one added as a test user)
-4. You'll see: *"Google hasn't verified this app"*
+4. You'll see: _"Google hasn't verified this app"_
    - Click **"Advanced"**
    - Click **"Go to YouTube Music MCP Server (unsafe)"**
 5. Review permissions and click **"Allow"**
-6. You'll see: *"The authentication flow has completed"*
+6. You'll see: _"The authentication flow has completed"_
 7. Copy the **authorization code** from the page
 8. **Paste the code** back into the terminal
 9. Press **Enter**
@@ -164,6 +167,7 @@ print(f'Liked songs: {len(yt.get_liked_songs(limit=1))} (showing 1)')
 ```
 
 Expected output:
+
 ```
 ✅ OAuth authentication successful!
 Liked songs: 1 (showing 1)
@@ -223,6 +227,7 @@ If compromised, revoke access:
 **Problem**: Invalid client ID or secret
 
 **Solution**:
+
 1. Re-download `client_secret.json` from Google Cloud Console
 2. Make sure it's named exactly `client_secret.json`
 3. Run `python3 -m ytmusicapi oauth` again
@@ -235,6 +240,7 @@ If compromised, revoke access:
 
 **Solution**:
 This is expected for personal projects. To bypass:
+
 1. When seeing the warning, click **"Advanced"**
 2. Click **"Go to YouTube Music MCP Server (unsafe)"**
 3. This is safe because it's your own app
@@ -248,6 +254,7 @@ This is expected for personal projects. To bypass:
 **Problem**: Refresh token expired or revoked
 
 **Solution**:
+
 1. Delete `oauth.json`
 2. Run `python3 -m ytmusicapi oauth` again
 3. Complete the authorization flow
@@ -259,6 +266,7 @@ This is expected for personal projects. To bypass:
 **Problem**: You didn't add yourself as a test user
 
 **Solution**:
+
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. **APIs & Services** → **OAuth consent screen**
 3. Scroll to **"Test users"**
@@ -273,6 +281,7 @@ This is expected for personal projects. To bypass:
 **Problem**: `oauth.json` not created after authorization
 
 **Solution**:
+
 1. Make sure you ran `python3 -m ytmusicapi oauth` (not `ytmusicapi oauth`)
 2. Check you're in the project directory
 3. Verify you pasted the authorization code correctly
@@ -282,13 +291,13 @@ This is expected for personal projects. To bypass:
 
 ## OAuth vs Browser Authentication Comparison
 
-| Feature | OAuth | Browser Cookies |
-|---------|-------|-----------------|
-| **Setup complexity** | High (Google Cloud) | Low (just copy cookies) |
-| **Token lifespan** | Auto-refreshing | ~2 years |
-| **Security** | More secure | Less secure |
-| **Maintenance** | None (auto-refresh) | Manual refresh every ~2 years |
-| **Recommended for** | Production, long-term | Quick testing, personal use |
+| Feature              | OAuth                 | Browser Cookies               |
+| -------------------- | --------------------- | ----------------------------- |
+| **Setup complexity** | High (Google Cloud)   | Low (just copy cookies)       |
+| **Token lifespan**   | Auto-refreshing       | ~2 years                      |
+| **Security**         | More secure           | Less secure                   |
+| **Maintenance**      | None (auto-refresh)   | Manual refresh every ~2 years |
+| **Recommended for**  | Production, long-term | Quick testing, personal use   |
 
 ---
 

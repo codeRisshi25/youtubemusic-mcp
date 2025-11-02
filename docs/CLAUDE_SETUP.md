@@ -18,16 +18,19 @@ Before you begin:
 Claude Desktop stores its MCP server configuration in a JSON file. The location varies by operating system:
 
 ### macOS
+
 ```bash
 ~/Library/Application Support/Claude/claude_desktop_config.json
 ```
 
 ### Windows
+
 ```
 %APPDATA%\Claude\claude_desktop_config.json
 ```
 
 ### Linux
+
 ```bash
 ~/.config/Claude/claude_desktop_config.json
 ```
@@ -56,6 +59,7 @@ where python
 ```
 
 **Example output**:
+
 ```
 /home/risshi/data/youtubemusic-mcp/venv/bin/python
 ```
@@ -75,6 +79,7 @@ Get-Location
 ```
 
 **Full path example**:
+
 ```
 /home/risshi/data/youtubemusic-mcp/server.py
 ```
@@ -133,6 +138,7 @@ notepad %APPDATA%\Claude\claude_desktop_config.json
 ### Platform-Specific Examples
 
 #### macOS Example
+
 ```json
 {
   "mcpServers": {
@@ -145,6 +151,7 @@ notepad %APPDATA%\Claude\claude_desktop_config.json
 ```
 
 #### Linux Example
+
 ```json
 {
   "mcpServers": {
@@ -157,6 +164,7 @@ notepad %APPDATA%\Claude\claude_desktop_config.json
 ```
 
 #### Windows Example
+
 ```json
 {
   "mcpServers": {
@@ -168,7 +176,8 @@ notepad %APPDATA%\Claude\claude_desktop_config.json
 }
 ```
 
-**Important**: 
+**Important**:
+
 - On Windows, use **double backslashes** (`\\`) in paths
 - On macOS/Linux, use **forward slashes** (`/`)
 - **Always use absolute paths** - never use `~` or relative paths
@@ -205,6 +214,7 @@ Try asking Claude:
 ```
 
 If everything is working, Claude will:
+
 1. Recognize it needs YouTube Music data
 2. Use the `get_liked_songs_count` tool
 3. Return your actual song count
@@ -220,20 +230,23 @@ If everything is working, Claude will:
 **Solutions**:
 
 1. **Check JSON syntax**:
+
    - Use a JSON validator: https://jsonlint.com/
    - Ensure all braces, brackets, and quotes match
    - No trailing commas
 
 2. **Verify absolute paths**:
+
    ```bash
    # Test that the Python path exists
    ls -l /absolute/path/to/venv/bin/python
-   
+
    # Test that the server script exists
    ls -l /absolute/path/to/server.py
    ```
 
 3. **Check file permissions**:
+
    ```bash
    # macOS/Linux - make server.py executable
    chmod +x /absolute/path/to/server.py
@@ -253,16 +266,18 @@ If everything is working, Claude will:
 **Solutions**:
 
 1. **Test the server manually**:
+
    ```bash
    cd /path/to/youtubemusic-mcp
    source venv/bin/activate
    python server.py
    ```
-   
+
    - Server should start without errors
    - Press `Ctrl+C` to stop
 
 2. **Check authentication**:
+
    ```bash
    python3 -c "from ytmusicapi import YTMusic; yt = YTMusic('browser.json'); print('✅ Auth works!')"
    ```
@@ -295,13 +310,16 @@ Your `browser.json` or `oauth.json` cookies may have expired. Get fresh authenti
 **Solutions**:
 
 1. **Test with MCP Inspector first**:
+
    ```bash
    npx @modelcontextprotocol/inspector venv/bin/python server.py
    ```
+
    - If tools work here but not in Claude, it's a Claude configuration issue
    - If tools don't work here, it's a server/auth issue
 
 2. **Check Python version**:
+
    ```bash
    python --version
    # Must be 3.10 or higher
@@ -358,22 +376,26 @@ If you're not using a virtual environment (not recommended):
 Once integrated, you can ask Claude:
 
 ### Library Queries
-- *"How many songs have I liked on YouTube Music?"*
-- *"What are my library statistics?"*
-- *"Show me my top 10 artists"*
+
+- _"How many songs have I liked on YouTube Music?"_
+- _"What are my library statistics?"_
+- _"Show me my top 10 artists"_
 
 ### Search & Discovery
-- *"Search for songs by Pink Floyd"*
-- *"Find me jazz playlists"*
-- *"What are some songs similar to Hotel California?"*
+
+- _"Search for songs by Pink Floyd"_
+- _"Find me jazz playlists"_
+- _"What are some songs similar to Hotel California?"_
 
 ### Recommendations
-- *"Give me 20 music recommendations based on Blinding Lights"*
-- *"Recommend similar artists to The Weeknd"*
+
+- _"Give me 20 music recommendations based on Blinding Lights"_
+- _"Recommend similar artists to The Weeknd"_
 
 ### Playlist Management
-- *"Create a playlist called 'Chill Vibes' with lo-fi hip hop songs"*
-- *"Make a workout playlist with high-energy rock songs"*
+
+- _"Create a playlist called 'Chill Vibes' with lo-fi hip hop songs"_
+- _"Make a workout playlist with high-energy rock songs"_
 
 ---
 

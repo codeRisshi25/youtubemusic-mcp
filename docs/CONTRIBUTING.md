@@ -140,43 +140,52 @@ python server.py
 2. ✅ **Update documentation** - README, docstrings, etc.
 3. ✅ **Follow coding standards** (see below)
 4. ✅ **Run code formatters**:
+
    ```bash
    # Format with black (if installed)
    black server.py
-   
+
    # Or manually format to PEP 8
    ```
+
 5. ✅ **Check for sensitive data** - no API keys, tokens, or personal info
 
 ### Submitting the PR
 
 1. **Push your branch**:
+
    ```bash
    git push origin feature/your-feature-name
    ```
 
 2. **Create Pull Request** on GitHub:
+
    - Use a clear, descriptive title
    - Reference any related issues: "Fixes #123" or "Relates to #456"
    - Describe what changed and why
    - Include screenshots/examples if relevant
 
 3. **PR Description Template**:
+
    ```markdown
    ## Changes
+
    - Bullet point summary of changes
-   
+
    ## Motivation
+
    Why was this change needed?
-   
+
    ## Testing
+
    - [ ] Tested with MCP Inspector
    - [ ] Tested with Claude Desktop
    - [ ] Verified authentication works
-   
+
    ## Related Issues
+
    Fixes #123
-   
+
    ## Screenshots (if applicable)
    ```
 
@@ -204,10 +213,10 @@ python server.py
 async def handle_get_liked_songs_count() -> list[types.TextContent]:
     """
     Get the total count of songs in the user's liked songs library.
-    
+
     Returns:
         TextContent with the song count
-        
+
     Raises:
         RuntimeError: If ytmusic client is not initialized
     """
@@ -259,6 +268,7 @@ for page in range(0, total_items, 25):
 Before submitting a PR, test:
 
 1. **MCP Inspector** - verify tool works in isolation
+
    ```bash
    npx @modelcontextprotocol/inspector venv/bin/python server.py
    ```
@@ -359,18 +369,18 @@ Add to `call_tool()`:
 async def handle_your_new_tool(param_name: str) -> list[types.TextContent]:
     """
     Clear docstring explaining the tool.
-    
+
     Args:
         param_name: Description of the parameter
-        
+
     Returns:
         TextContent with the results
     """
     yt = await initialize_ytmusic()
-    
+
     # Implementation
     result = yt.some_api_method(param_name)
-    
+
     return [types.TextContent(
         type="text",
         text=json.dumps(result, indent=2)
@@ -390,6 +400,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 ### 4. Document It
 
 Add to README.md under "Available Tools" section with:
+
 - Description
 - Parameters
 - Return format
