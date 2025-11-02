@@ -1,0 +1,11 @@
+{
+  "client_id": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+  "client_secret": "YOUR_GOOGLE_CLIENT_SECRET",
+  "token": {
+    "access_token": "YOUR_ACCESS_TOKEN",
+    "refresh_token": "YOUR_REFRESH_TOKEN",
+    "token_type": "Bearer",
+    "expires_in": 3599,
+    "expires_at": 1234567890.123456
+  }
+}

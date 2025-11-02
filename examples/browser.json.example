@@ -1,0 +1,7 @@
+{
+  "Cookie": "PASTE_YOUR_YOUTUBE_MUSIC_COOKIE_HERE",
+  "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+  "authorization": "SAPISIDHASH_WILL_BE_GENERATED_AUTOMATICALLY",
+  "X-Goog-AuthUser": "0",
+  "x-origin": "https://music.youtube.com"
+}
