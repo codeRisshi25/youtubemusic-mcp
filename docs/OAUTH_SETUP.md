@@ -1,20 +1,13 @@
 # OAuth Authentication Setup Guide
 
-This guide explains how to set up OAuth authentication for the YouTube Music MCP server. OAuth is recommended for long-term use as tokens automatically refresh.
-
----
+OAuth authentication provides auto-refreshing tokens for long-term use.
 
 ## Overview
 
-**Browser authentication** (cookies) expires after ~2 years or when you log out. **OAuth** provides:
+**Browser auth**: Expires after ~2 years or on logout  
+**OAuth**: Auto-refreshing, more secure, better for production
 
-- ✅ **Auto-refreshing tokens** - no need to manually update credentials
-- ✅ **More secure** - tokens can be revoked without password change
-- ✅ **Better for production** - suitable for long-term deployments
-
-**Downside**: More complex initial setup requiring Google Cloud Console access.
-
----
+**Tradeoff**: More complex setup requiring Google Cloud Console access.
 
 ## Prerequisites
 

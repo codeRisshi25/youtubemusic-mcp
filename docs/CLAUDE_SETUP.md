@@ -1,15 +1,12 @@
 # Claude Desktop Setup Guide
 
-This guide provides detailed instructions for integrating the YouTube Music MCP server with Claude Desktop.
+Complete instructions for integrating the YouTube Music MCP server with Claude Desktop.
 
 ## Prerequisites
 
-Before you begin:
-
-- ✅ Completed [Installation](../README.md#-installation)
-- ✅ Completed [Authentication Setup](../README.md#-authentication-setup)
-- ✅ Tested the server with MCP Inspector
-- ✅ Claude Desktop installed on your system
+- ✅ Installed dependencies (`pip install -e .`)
+- ✅ Configured authentication (`browser.json` or `oauth.json`)
+- ✅ Claude Desktop installed
 
 ---
 
