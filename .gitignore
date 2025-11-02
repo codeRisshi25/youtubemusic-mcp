@@ -48,6 +48,7 @@ browser.json
 headers.json
 client_secret.json
 client_secret_*.json
+cookie.txt
 
 # IDE
 .vscode/
