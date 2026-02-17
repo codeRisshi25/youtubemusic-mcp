@@ -2,29 +2,90 @@
 
 <div align="center">
 
-A powerful Model Context Protocol (MCP) server that connects YouTube Music to AI assistants like Claude. Access your music library, get recommendations, search for songs, create playlists, and discover new music through natural language conversations.
+A production-grade Model Context Protocol (MCP) server that connects YouTube Music to AI assistants like Claude.  
+Implements the full MCP primitive set — **Tools, Resources, and Prompts** — for genuine agentic music experiences.
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![MCP](https://img.shields.io/badge/MCP-1.0-purple.svg)
+![Tests](https://img.shields.io/badge/tests-51%20passing-brightgreen.svg)
+![CI](https://github.com/codeRisshi25/youtubemusic-mcp/actions/workflows/ci.yml/badge.svg)
 
-[Features](#features) • [Installation](#installation) • [Authentication](#authentication) • [Usage](#usage) • [Tools](#available-tools)
+[Architecture](#architecture) • [Features](#features) • [Installation](#installation) • [Authentication](#authentication) • [Usage](#usage) • [Tools](#tools) • [Resources](#resources) • [Prompts](#prompts)
 
 </div>
 
 ---
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Claude / AI Assistant                     │
+└──────────────────────┬──────────────────────────────────────┘
+                       │  Model Context Protocol (stdio)
+┌──────────────────────▼──────────────────────────────────────┐
+│                 YouTube Music MCP Server v2                  │
+│                                                             │
+│  ┌─────────────┐  ┌───────────────┐  ┌──────────────────┐  │
+│  │  15 Tools   │  │  3 Resources  │  │    3 Prompts     │  │
+│  │             │  │               │  │                  │  │
+│  │ search      │  │library://     │  │weekly-discovery  │  │
+│  │ stats       │  │  songs        │  │mood-based-       │  │
+│  │ similar ★  │  │  artists      │  │  playlist        │  │
+│  │ recommend ★│  │  playlists    │  │artist-deep-dive  │  │
+│  │ smart pl ★ │  └───────────────┘  └──────────────────┘  │
+│  │ charts      │                                           │
+│  │ insights    │  ┌───────────────────────────────────┐    │
+│  │ moods       │  │  TTL Cache (5 min)  •  Async ★   │    │
+│  │ ...         │  │  Custom Exceptions  •  Logging    │    │
+│  └─────────────┘  └───────────────────────────────────┘    │
+└──────────────────────┬──────────────────────────────────────┘
+                       │  ytmusicapi
+┌──────────────────────▼──────────────────────────────────────┐
+│                   YouTube Music API                          │
+└─────────────────────────────────────────────────────────────┘
+★ = Agentic / async feature
+```
+
+---
+
 ## Features
 
-**7 powerful tools for music discovery and library management:**
+**15 Tools · 3 Resources · 3 Prompts — full MCP primitive coverage:**
 
-- 🎵 **get_liked_songs_count** - Get total count of liked songs
-- 📊 **get_library_stats** - Comprehensive library statistics (songs, playlists, artists, albums)
-- 🔍 **search_music** - Search for songs, artists, albums, or playlists
-- 🎤 **get_top_artists** - Most played artists from listening history
-- 🎧 **find_similar_songs** - Discover similar tracks
-- ✨ **get_recommendations** - Personalized music recommendations
-- 📝 **create_playlist_from_songs** - Create playlists from song queries
+### 🛠️ Tools
+| Tool | Description |
+|------|-------------|
+| `get_liked_songs_count` | Total song count (bypasses YT display limit) |
+| `get_library_stats` | Songs, artists, playlists + detailed breakdown |
+| `search_music` | Search with type filter (songs/albums/artists/playlists/videos) |
+| `get_top_artists` | Ranked artists with visual progress bars |
+| `find_similar_songs` ⭐ | **Real** YTMusic radio engine — not a fake artist search |
+| `get_recommendations` ⭐ | Async-parallel fetch across top 5 artists |
+| `create_playlist_from_songs` | Create & populate playlist from search queries |
+| `list_playlists` | All your playlists with IDs and song counts |
+| `get_playlist_songs` | Browse songs in any playlist |
+| `add_songs_to_playlist` | Add songs to existing playlist |
+| `build_smart_playlist` ⭐ | **Agentic** 6-step pipeline: mood→category→tracks→filter→save |
+| `explore_moods` | Discover all YTMusic Moods & Genres categories |
+| `get_charts` | Global or country-specific trending charts |
+| `get_listening_insights` | History analysis: patterns, diversity score, insights |
+| `get_server_info` | Auth method, cache state, version, capabilities |
+
+### 📦 Resources (passively readable by Claude)
+| Resource URI | Description |
+|---|---|
+| `library://songs` | Full library as structured JSON |
+| `library://artists` | Artist rankings with percentages |
+| `library://playlists` | All playlists as structured JSON |
+
+### 💬 Prompts (guided conversation starters)
+| Prompt | Description |
+|---|---|
+| `weekly-discovery-mix` | Guided weekly music discovery workflow |
+| `mood-based-playlist` | Collaborative mood → playlist session |
+| `artist-deep-dive` | Full artist exploration + listening plan |
 
 ---
 
@@ -100,7 +161,7 @@ See [docs/OAUTH_SETUP.md](docs/OAUTH_SETUP.md) for complete OAuth setup instruct
 npx @modelcontextprotocol/inspector venv/bin/python server.py
 ```
 
-Opens web interface at `http://localhost:6274` to test all tools.
+Opens web interface at `http://localhost:6274` to test all 15 tools, 3 resources, and 3 prompts.
 
 ### Claude Desktop Integration
 
@@ -130,15 +191,34 @@ See [docs/CLAUDE_SETUP.md](docs/CLAUDE_SETUP.md) for detailed instructions.
 
 ## Available Tools
 
-| Tool | Description |
-|------|-------------|
-| `get_liked_songs_count` | Get total count of your liked songs |
-| `get_library_stats` | Comprehensive library statistics (songs, playlists, artists, albums) |
-| `search_music` | Search for songs, artists, albums, or playlists |
-| `get_top_artists` | Get your most played artists from listening history |
-| `find_similar_songs` | Discover songs similar to any track |
-| `get_recommendations` | Get personalized music recommendations |
-| `create_playlist_from_songs` | Create playlists from song queries |
+See the [Features section](#features) above for a full table of all 15 tools.
+
+### Agentic Highlights
+
+**`build_smart_playlist`** — the centrepiece agentic tool. Runs a 6-step pipeline inside a single tool call:
+```
+Step 1: Fetch all Moods & Genres from YouTube Music
+Step 2: Match your mood keyword to a real category
+Step 3: Pull mood playlist pool from that category
+Step 4: Sample tracks across multiple playlists
+Step 5: Apply energy-level filter (high/medium/low)
+Step 6: Optionally create & save to YouTube Music
+```
+
+**`find_similar_songs`** — uses `get_watch_playlist(radio=True)`, the actual YTMusic similarity engine, not a fake artist search.
+
+**`get_recommendations`** — fetches from 5 artists using `asyncio.gather()` for true parallel execution.
+
+---
+
+## Running Tests
+
+```bash
+pip install -e ".[dev]"
+pytest tests/ -v
+```
+
+51 tests covering auth, caching, all tools, resources, prompts, and routing — no network required (fully mocked).
 
 ---
 

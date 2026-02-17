@@ -1,7 +1,7 @@
 [project]
 name = "youtube-music-mcp"
-version = "1.0.0"
-description = "MCP server for YouTube Music integration with AI assistants"
+version = "2.0.0"
+description = "Production-grade MCP server for YouTube Music — 15 tools, 3 resources, 3 prompts"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -27,3 +27,9 @@ target-version = ['py310']
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
