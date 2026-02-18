@@ -254,12 +254,13 @@ class TestHelpers:
     def test_artist_name_unknown_for_other_types(self):
         assert server._artist_name(None) == "Unknown Artist"  # type: ignore
 
-    def test_fmt_song_with_index(self):
-        song = {"title": "HUMBLE.", "artists": [{"name": "Kendrick Lamar"}], "album": {"name": "DAMN."}}
-        result = server._fmt_song(song, 1)
-        assert "1." in result
-        assert "HUMBLE." in result
-        assert "Kendrick Lamar" in result
+    def test_song_to_dict(self):
+        song = {"title": "HUMBLE.", "artists": [{"name": "Kendrick Lamar"}], "album": {"name": "DAMN."}, "videoId": "abc"}
+        result = server._song_to_dict(song)
+        assert result["title"] == "HUMBLE."
+        assert result["artist"] == "Kendrick Lamar"
+        assert result["album"] == "DAMN."
+        assert result["videoId"] == "abc"
 
     def test_artist_counts(self):
         counts = server._artist_counts(MOCK_SONGS)
@@ -275,44 +276,48 @@ class TestHelpers:
 class TestTools:
     def test_get_liked_songs_count(self, mock_yt):
         result = asyncio.run(server.tool_get_liked_songs_count())
-        assert len(result) == 1
-        assert "6" in result[0].text  # 6 mock songs
+        data = json.loads(result[0].text)
+        assert data["total_songs"] == 6
 
     def test_get_library_stats_basic(self, mock_yt):
         result = asyncio.run(server.tool_get_library_stats(detailed=False))
-        text = result[0].text
-        assert "6" in text  # total songs
-        assert "Library Statistics" in text
+        data = json.loads(result[0].text)
+        assert data["total_songs"] == 6
+        assert "unique_artists" in data
+        assert "total_playlists" in data
 
     def test_get_library_stats_detailed(self, mock_yt):
         result = asyncio.run(server.tool_get_library_stats(detailed=True))
-        text = result[0].text
-        assert "Top 5 Artists" in text
+        data = json.loads(result[0].text)
+        assert "top_artists" in data
+        assert len(data["top_artists"]) > 0
 
     def test_get_top_artists_returns_ranked(self, mock_yt):
         result = asyncio.run(server.tool_get_top_artists(limit=3))
-        text = result[0].text
-        # Post Malone and Kendrick Lamar both have 2 songs
-        assert "Kendrick Lamar" in text or "Post Malone" in text
-        assert "Top" in text
+        data = json.loads(result[0].text)
+        artists = [a["artist"] for a in data["artists"]]
+        assert "Kendrick Lamar" in artists or "Post Malone" in artists
+        assert data["artists"][0]["rank"] == 1
 
     def test_search_music_returns_formatted(self, mock_yt):
         result = asyncio.run(server.tool_search_music("Kendrick", "all", 10))
-        text = result[0].text
-        assert "HUMBLE." in text
-        assert "Search Results" in text
+        data = json.loads(result[0].text)
+        assert data["query"] == "Kendrick"
+        titles = [r["title"] for r in data["results"]]
+        assert "HUMBLE." in titles
 
     def test_search_music_no_results(self, mock_yt):
         mock_yt.search.return_value = []
         result = asyncio.run(server.tool_search_music("xyznonexistent", "all", 5))
-        assert "No results" in result[0].text
+        data = json.loads(result[0].text)
+        assert len(data["results"]) == 0
 
     def test_find_similar_songs_uses_radio(self, mock_yt):
         result = asyncio.run(server.tool_find_similar_songs("HUMBLE. Kendrick", limit=3))
-        text = result[0].text
-        assert "Similar" in text
+        data = json.loads(result[0].text)
+        assert "seed" in data
+        assert "similar_songs" in data
         mock_yt.get_watch_playlist.assert_called_once()
-        # Verify radio=True was passed
         call_kwargs = mock_yt.get_watch_playlist.call_args
         assert call_kwargs.kwargs.get("radio") is True or (len(call_kwargs.args) > 2 and True)
 
@@ -323,61 +328,68 @@ class TestTools:
 
     def test_get_recommendations_parallel(self, mock_yt):
         result = asyncio.run(server.tool_get_recommendations(count=5))
-        text = result[0].text
-        assert "Recommendations" in text
+        data = json.loads(result[0].text)
+        assert "recommendations" in data
+        assert "based_on_artists" in data
 
     def test_list_playlists(self, mock_yt):
         result = asyncio.run(server.tool_list_playlists(limit=10))
-        text = result[0].text
-        assert "Rap Favourites" in text
-        assert "Late Night Chill" in text
+        data = json.loads(result[0].text)
+        titles = [p["title"] for p in data["playlists"]]
+        assert "Rap Favourites" in titles
+        assert "Late Night Chill" in titles
 
     def test_get_playlist_songs(self, mock_yt):
         result = asyncio.run(server.tool_get_playlist_songs("PLrandom1", limit=10))
-        text = result[0].text
-        assert "Rap Favourites" in text
+        data = json.loads(result[0].text)
+        assert data["title"] == "Rap Favourites"
+        assert data["playlistId"] == "PLrandom1"
         mock_yt.get_playlist.assert_called_once_with("PLrandom1", limit=10)
 
     def test_create_playlist_success(self, mock_yt):
         result = asyncio.run(server.tool_create_playlist_from_songs(
             "My Test Playlist", ["HUMBLE. Kendrick", "God's Plan Drake"], "test desc", "PRIVATE"
         ))
-        text = result[0].text
-        assert "PL_new_id" in text
-        assert "created" in text.lower()
+        data = json.loads(result[0].text)
+        assert data["playlistId"] == "PL_new_id"
+        assert data["success"] is True
 
     def test_add_songs_to_playlist(self, mock_yt):
         result = asyncio.run(server.tool_add_songs_to_playlist("PLrandom1", ["HUMBLE. Kendrick"]))
-        text = result[0].text
-        assert "Added" in text
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+        assert len(data["added_songs"]) > 0
         mock_yt.add_playlist_items.assert_called_once()
 
     def test_explore_moods(self, mock_yt):
         result = asyncio.run(server.tool_explore_moods())
-        text = result[0].text
-        assert "Chill Vibes" in text
-        assert "Workout Beats" in text
+        data = json.loads(result[0].text)
+        all_cats = [c for s in data["mood_categories"] for c in s["categories"]]
+        assert "Chill Vibes" in all_cats
+        assert "Workout Beats" in all_cats
 
     def test_get_charts_global(self, mock_yt):
         result = asyncio.run(server.tool_get_charts("ZZ"))
-        text = result[0].text
-        assert "Top Song 1" in text
-        assert "Trending" in text
+        data = json.loads(result[0].text)
+        assert data["country"] == "ZZ"
+        assert data["trending_songs"][0]["title"] == "Top Song 1"
+        assert data["trending_artists"][0]["name"] == "Trending Artist 1"
         mock_yt.get_charts.assert_called_once_with(country="ZZ")
 
     def test_get_listening_insights(self, mock_yt):
         result = asyncio.run(server.tool_get_listening_insights())
-        text = result[0].text
-        assert "Kendrick Lamar" in text
-        assert "Insight" in text
+        data = json.loads(result[0].text)
+        assert data["total_tracks"] == 3
+        assert data["top_artists"][0]["artist"] == "Kendrick Lamar"
+        assert "insight" in data
 
     def test_get_server_info(self, mock_yt):
         result = asyncio.run(server.tool_get_server_info())
-        text = result[0].text
-        assert "2.0.0" in text
-        assert "15 Tools" in text
-        assert "3 Resources" in text
-        assert "3 Prompts" in text
+        data = json.loads(result[0].text)
+        assert data["version"] == "2.0.0"
+        assert data["capabilities"]["tools"] == 15
+        assert data["capabilities"]["resources"] == 3
+        assert data["capabilities"]["prompts"] == 3
 
     def test_build_smart_playlist_matched(self, mock_yt):
         mock_yt.get_playlist.return_value = {
@@ -387,9 +399,10 @@ class TestTools:
             ]
         }
         result = asyncio.run(server.tool_build_smart_playlist("chill", "", "medium", 5))
-        text = result[0].text
-        assert "Smart Playlist Builder" in text
-        assert "Step 1" in text
+        data = json.loads(result[0].text)
+        assert data["mood"] == "chill"
+        assert "steps" in data
+        assert "tracks" in data
 
 
 # ─────────────────────────────────────────────
@@ -481,21 +494,26 @@ class TestPrompts:
 class TestToolRouting:
     def test_unknown_tool_returns_error(self, mock_yt):
         result = asyncio.run(server.call_tool("totally_fake_tool", {}))
-        assert "error" in result[0].text.lower() or "unknown" in result[0].text.lower()
+        data = json.loads(result[0].text)
+        assert "error" in data
 
     def test_missing_required_arg_returns_error(self, mock_yt):
         result = asyncio.run(server.call_tool("search_music", {}))
-        assert "Invalid input" in result[0].text or "query" in result[0].text
+        data = json.loads(result[0].text)
+        assert "error" in data
 
     def test_call_get_liked_songs_count(self, mock_yt):
         result = asyncio.run(server.call_tool("get_liked_songs_count", {}))
-        assert len(result) == 1
-        assert "6" in result[0].text
+        data = json.loads(result[0].text)
+        assert data["total_songs"] == 6
 
     def test_call_search_music(self, mock_yt):
         result = asyncio.run(server.call_tool("search_music", {"query": "Kendrick", "filter_type": "songs"}))
-        assert "HUMBLE." in result[0].text
+        data = json.loads(result[0].text)
+        titles = [r["title"] for r in data["results"]]
+        assert "HUMBLE." in titles
 
     def test_call_get_server_info(self, mock_yt):
         result = asyncio.run(server.call_tool("get_server_info", {}))
-        assert "2.0.0" in result[0].text
+        data = json.loads(result[0].text)
+        assert data["version"] == "2.0.0"

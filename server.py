@@ -220,17 +220,22 @@ def _artist_name(artist: str | dict) -> str:
     return "Unknown Artist"
 
 
-def _fmt_song(song: dict, idx: int | None = None) -> str:
-    title = song.get("title", "Unknown")
+def _song_to_dict(song: dict) -> dict:
+    """Normalize a YTMusic song/track dict into a clean JSON-friendly dict."""
     artists = song.get("artists") or []
-    artist = _artist_name(artists[0]) if artists else "Unknown Artist"
     album_obj = song.get("album") or {}
-    album = album_obj.get("name", "") if isinstance(album_obj, dict) else ""
-    prefix = f"{idx}. " if idx is not None else "• "
-    line = f"{prefix}**{title}** — {artist}"
-    if album:
-        line += f"\n   _Album: {album}_"
-    return line
+    return {
+        "title": song.get("title", "Unknown"),
+        "artist": _artist_name(artists[0]) if artists else "Unknown Artist",
+        "album": album_obj.get("name") if isinstance(album_obj, dict) else None,
+        "videoId": song.get("videoId"),
+        "duration": song.get("duration") or song.get("duration_seconds"),
+    }
+
+
+def _json_response(data: Any) -> list[TextContent]:
+    """Return a single TextContent with JSON-serialized data."""
+    return [TextContent(type="text", text=json.dumps(data, ensure_ascii=False))]
 
 
 def _get_library_songs_cached() -> list[dict]:
@@ -270,7 +275,7 @@ def _artist_counts(songs: list[dict]) -> Counter:
 
 async def tool_get_liked_songs_count() -> list[TextContent]:
     songs = _get_library_songs_cached()
-    return [TextContent(type="text", text=f"🎵 You have **{len(songs):,}** songs in your YouTube Music library.")]
+    return _json_response({"total_songs": len(songs)})
 
 
 async def tool_get_library_stats(detailed: bool = False) -> list[TextContent]:
@@ -278,26 +283,23 @@ async def tool_get_library_stats(detailed: bool = False) -> list[TextContent]:
     total = len(songs)
     counts = _artist_counts(songs)
     unique_artists = len(counts)
+    playlists = _get_library_playlists_cached()
 
-    lines = [
-        "## 📊 Library Statistics\n",
-        f"🎵 **Total Songs:** {total:,}",
-        f"🎤 **Unique Artists:** {unique_artists:,}",
-    ]
+    result: dict[str, Any] = {
+        "total_songs": total,
+        "unique_artists": unique_artists,
+        "total_playlists": len(playlists),
+    }
 
     if detailed and total > 0:
         avg = total / unique_artists if unique_artists else 0
-        top5 = counts.most_common(5)
-        lines.append(f"📈 **Avg Songs / Artist:** {avg:.1f}")
-        lines.append("\n**Top 5 Artists:**")
-        for artist, cnt in top5:
-            pct = cnt / total * 100
-            lines.append(f"  • {artist}: {cnt:,} songs ({pct:.1f}%)")
+        result["avg_songs_per_artist"] = round(avg, 1)
+        result["top_artists"] = [
+            {"artist": artist, "songs": cnt, "percentage": round(cnt / total * 100, 1)}
+            for artist, cnt in counts.most_common(5)
+        ]
 
-    playlists = _get_library_playlists_cached()
-    lines.append(f"📝 **Playlists:** {len(playlists):,}")
-
-    return [TextContent(type="text", text="\n".join(lines))]
+    return _json_response(result)
 
 
 async def tool_search_music(query: str, filter_type: str = "all", limit: int = 10) -> list[TextContent]:
@@ -309,55 +311,41 @@ async def tool_search_music(query: str, filter_type: str = "all", limit: int = 1
     search_filter = filter_map.get(filter_type)
     results = yt.search(query, filter=search_filter, limit=limit)
 
-    if not results:
-        return [TextContent(type="text", text=f"🔍 No results for **\"{query}\"**.")]
-
-    by_type: dict[str, list[dict]] = {}
+    items = []
     for item in results:
-        rt = item.get("resultType", "other")
-        by_type.setdefault(rt, []).append(item)
+        entry: dict[str, Any] = {
+            "resultType": item.get("resultType", "other"),
+            "title": item.get("title") or item.get("artist", "Unknown"),
+            "videoId": item.get("videoId"),
+            "browseId": item.get("browseId"),
+        }
+        artists = item.get("artists") or []
+        if artists:
+            entry["artist"] = _artist_name(artists[0])
+        album_obj = item.get("album") or {}
+        if isinstance(album_obj, dict) and album_obj.get("name"):
+            entry["album"] = album_obj["name"]
+        if item.get("playlistId"):
+            entry["playlistId"] = item["playlistId"]
+        items.append(entry)
 
-    icons = {"song": "🎵", "album": "💿", "artist": "🎤", "playlist": "📝", "video": "🎬"}
-    out = [f"## 🔍 Search Results for \"{query}\"\n"]
-
-    for rt, items in by_type.items():
-        icon = icons.get(rt, "•")
-        out.append(f"**{icon} {rt.capitalize()}s:**")
-        for i, item in enumerate(items, 1):
-            title = item.get("title") or item.get("artist", "Unknown")
-            artists = item.get("artists") or []
-            artist = _artist_name(artists[0]) if artists else ""
-            album_obj = item.get("album") or {}
-            album = album_obj.get("name", "") if isinstance(album_obj, dict) else ""
-            line = f"{i}. **{title}**"
-            if artist:
-                line += f" — {artist}"
-            if album:
-                line += f" (_Album: {album}_)"
-            out.append(line)
-        out.append("")
-
-    return [TextContent(type="text", text="\n".join(out))]
+    return _json_response({"query": query, "filter": filter_type, "results": items})
 
 
 async def tool_get_top_artists(limit: int = 10) -> list[TextContent]:
     songs = _get_library_songs_cached()
     if not songs:
-        return [TextContent(type="text", text="📊 Library is empty.")]
+        return _json_response({"total_songs": 0, "artists": []})
 
     counts = _artist_counts(songs)
     total = len(songs)
     top = counts.most_common(limit)
 
-    lines = [f"## 🎤 Top {min(limit, len(top))} Artists\n"]
-    for i, (artist, cnt) in enumerate(top, 1):
-        bar_len = int(cnt / top[0][1] * 20)
-        bar = "█" * bar_len + "░" * (20 - bar_len)
-        pct = cnt / total * 100
-        lines.append(f"**{i}. {artist}**")
-        lines.append(f"   `{bar}` {cnt:,} songs ({pct:.1f}%)\n")
-
-    return [TextContent(type="text", text="\n".join(lines))]
+    artists = [
+        {"rank": i, "artist": artist, "songs": cnt, "percentage": round(cnt / total * 100, 1)}
+        for i, (artist, cnt) in enumerate(top, 1)
+    ]
+    return _json_response({"total_songs": total, "artists": artists})
 
 
 async def tool_find_similar_songs(query: str, limit: int = 10) -> list[TextContent]:
@@ -384,33 +372,17 @@ async def tool_find_similar_songs(query: str, limit: int = 10) -> list[TextConte
     # Remove the seed song itself
     similar = [t for t in tracks if t.get("videoId") != video_id][:limit]
 
-    lines = [
-        f"## 🎧 Songs Similar to \"{seed_title}\" — {seed_artist}",
-        "_Powered by YouTube Music Radio Engine_\n",
-    ]
-
-    if not similar:
-        lines.append("No similar songs found via radio. Try a different song title.")
-    else:
-        for i, track in enumerate(similar, 1):
-            title = track.get("title", "Unknown")
-            artists = track.get("artists") or []
-            artist = _artist_name(artists[0]) if artists else "Unknown Artist"
-            album_obj = track.get("album") or {}
-            album = album_obj.get("name", "") if isinstance(album_obj, dict) else ""
-            line = f"{i}. **{title}** — {artist}"
-            if album:
-                line += f"\n   _Album: {album}_"
-            lines.append(line)
-
-    return [TextContent(type="text", text="\n".join(lines))]
+    return _json_response({
+        "seed": {"title": seed_title, "artist": seed_artist, "videoId": video_id},
+        "similar_songs": [_song_to_dict(t) for t in similar],
+    })
 
 
 async def tool_get_recommendations(count: int = 20) -> list[TextContent]:
     """Async-parallel recommendations from top 5 artists + mood categories."""
     songs = _get_library_songs_cached()
     if not songs:
-        return [TextContent(type="text", text="📊 Library empty — add songs first.")]
+        return _json_response({"based_on_artists": [], "recommendations": []})
 
     counts = _artist_counts(songs)
     top_artists = [a for a, _ in counts.most_common(5)]
@@ -441,14 +413,10 @@ async def tool_get_recommendations(count: int = 20) -> list[TextContent]:
         if len(recommendations) >= count:
             break
 
-    lines = [
-        "## ✨ Personalized Recommendations",
-        f"_Based on your top artists: {', '.join(top_artists[:3])}_\n",
-    ]
-    for i, song in enumerate(recommendations, 1):
-        lines.append(_fmt_song(song, i))
-
-    return [TextContent(type="text", text="\n".join(lines))]
+    return _json_response({
+        "based_on_artists": top_artists,
+        "recommendations": [_song_to_dict(s) for s in recommendations],
+    })
 
 
 async def tool_create_playlist_from_songs(
@@ -458,9 +426,6 @@ async def tool_create_playlist_from_songs(
     privacy_status: str = "PRIVATE",
 ) -> list[TextContent]:
     yt = get_yt()
-    lines = [f"## 📝 Creating Playlist: \"{title}\"\n"]
-    if description:
-        lines.append(f"_{description}_\n")
 
     found, not_found = [], []
     for query in song_queries:
@@ -476,59 +441,58 @@ async def tool_create_playlist_from_songs(
             not_found.append(query)
 
     if not found:
-        lines.append("❌ No songs found. Cannot create empty playlist.")
-        return [TextContent(type="text", text="\n".join(lines))]
+        return _json_response({
+            "success": False,
+            "error": "No songs found. Cannot create empty playlist.",
+            "not_found_queries": not_found,
+        })
 
     try:
         playlist_id = yt.create_playlist(title=title, description=description, privacy_status=privacy_status)
         video_ids = [item["song"]["videoId"] for item in found]
         yt.add_playlist_items(playlist_id, video_ids)
-        _cache_invalidate("library_playlists")  # invalidate cache
-        lines.append(f"✅ **Playlist created!** ID: `{playlist_id}`\n")
-        lines.append(f"**Added {len(found)} songs:**")
-        for i, item in enumerate(found, 1):
-            song = item["song"]
-            artists = song.get("artists") or []
-            artist = _artist_name(artists[0]) if artists else "Unknown"
-            lines.append(f"{i}. **{song.get('title','?')}** — {artist}  _(searched: \"{item['query']}\")_")
+        _cache_invalidate("library_playlists")
     except Exception as exc:
         raise PlaylistError(f"Failed to create playlist: {exc}") from exc
 
-    if not_found:
-        lines.append(f"\n❌ **Not found ({len(not_found)}):**")
-        for q in not_found:
-            lines.append(f"  • \"{q}\"")
-
-    return [TextContent(type="text", text="\n".join(lines))]
+    return _json_response({
+        "success": True,
+        "playlistId": playlist_id,
+        "title": title,
+        "description": description,
+        "privacy_status": privacy_status,
+        "added_songs": [
+            {"query": item["query"], **_song_to_dict(item["song"])} for item in found
+        ],
+        "not_found_queries": not_found,
+    })
 
 
 async def tool_list_playlists(limit: int = 25) -> list[TextContent]:
     playlists = _get_library_playlists_cached()
-    if not playlists:
-        return [TextContent(type="text", text="📝 No playlists found in your library.")]
-
     shown = playlists[:limit]
-    lines = [f"## 📝 Your Playlists ({len(playlists):,} total)\n"]
-    for i, pl in enumerate(shown, 1):
-        name = pl.get("title", "Unnamed")
-        count = pl.get("count", "?")
-        pl_id = pl.get("playlistId", "")
-        lines.append(f"{i}. **{name}** — {count} songs  `{pl_id}`")
-
-    return [TextContent(type="text", text="\n".join(lines))]
+    items = [
+        {
+            "title": pl.get("title", "Unnamed"),
+            "playlistId": pl.get("playlistId", ""),
+            "count": pl.get("count"),
+        }
+        for pl in shown
+    ]
+    return _json_response({"total": len(playlists), "playlists": items})
 
 
 async def tool_get_playlist_songs(playlist_id: str, limit: int = 50) -> list[TextContent]:
     yt = get_yt()
     playlist = yt.get_playlist(playlist_id, limit=limit)
-    pl_title = playlist.get("title", "Playlist")
     tracks = playlist.get("tracks", [])
 
-    lines = [f"## 📝 {pl_title}\n_{len(tracks)} songs shown_\n"]
-    for i, track in enumerate(tracks, 1):
-        lines.append(_fmt_song(track, i))
-
-    return [TextContent(type="text", text="\n".join(lines))]
+    return _json_response({
+        "playlistId": playlist_id,
+        "title": playlist.get("title", "Playlist"),
+        "track_count": len(tracks),
+        "tracks": [_song_to_dict(t) for t in tracks],
+    })
 
 
 async def tool_add_songs_to_playlist(playlist_id: str, song_queries: list[str]) -> list[TextContent]:
@@ -548,22 +512,24 @@ async def tool_add_songs_to_playlist(playlist_id: str, song_queries: list[str]) 
             not_found.append(query)
 
     if not found:
-        return [TextContent(type="text", text="❌ No songs found to add.")]
+        return _json_response({
+            "success": False,
+            "playlistId": playlist_id,
+            "error": "No songs found to add.",
+            "not_found_queries": not_found,
+        })
 
     video_ids = [item["song"]["videoId"] for item in found]
     yt.add_playlist_items(playlist_id, video_ids)
 
-    lines = [f"## ✅ Added {len(found)} songs to playlist `{playlist_id}`\n"]
-    for i, item in enumerate(found, 1):
-        song = item["song"]
-        artists = song.get("artists") or []
-        artist = _artist_name(artists[0]) if artists else "Unknown"
-        lines.append(f"{i}. **{song.get('title','?')}** — {artist}")
-
-    if not_found:
-        lines.append(f"\n❌ Not found ({len(not_found)}): {', '.join(not_found)}")
-
-    return [TextContent(type="text", text="\n".join(lines))]
+    return _json_response({
+        "success": True,
+        "playlistId": playlist_id,
+        "added_songs": [
+            {"query": item["query"], **_song_to_dict(item["song"])} for item in found
+        ],
+        "not_found_queries": not_found,
+    })
 
 
 async def tool_build_smart_playlist(
@@ -583,18 +549,18 @@ async def tool_build_smart_playlist(
     Step 5: Optionally save as a new playlist.
     """
     yt = get_yt()
-    lines = [f"## 🧠 Smart Playlist Builder\n**Mood:** {mood}  |  **Genre:** {genre or 'Any'}  |  **Energy:** {energy_level}\n"]
+    steps: list[dict[str, Any]] = []
 
     # Step 1 — Fetch mood categories
-    lines.append("**Step 1:** Fetching mood & genre categories from YouTube Music…")
     try:
         mood_cats = yt.get_mood_categories()
+        steps.append({"step": 1, "action": "fetch_mood_categories", "status": "ok"})
     except Exception as exc:
         log.warning("get_mood_categories failed: %s", exc)
         mood_cats = {}
+        steps.append({"step": 1, "action": "fetch_mood_categories", "status": "failed", "error": str(exc)})
 
     # Step 2 — Match mood keyword
-    lines.append("**Step 2:** Matching your mood to YouTube Music categories…")
     matched_params: str | None = None
     matched_label: str = ""
     target = (mood + " " + genre).lower()
@@ -610,25 +576,23 @@ async def tool_build_smart_playlist(
             break
 
     if not matched_params:
-        # Fallback: just search for mood directly
-        lines.append(f"  → No exact category match; using search fallback for **\"{mood}\"**")
+        steps.append({"step": 2, "action": "match_mood", "status": "fallback", "detail": "No category match; using search"})
         try:
             results = yt.search(f"{mood} {genre} music playlist".strip(), filter="playlists", limit=5)
             playlist_pool = results[:3]
         except Exception:
             playlist_pool = []
     else:
-        lines.append(f"  → Matched category: **{matched_label}**")
-        # Step 3 — Fetch mood playlists
-        lines.append("**Step 3:** Fetching playlists for that mood category…")
+        steps.append({"step": 2, "action": "match_mood", "status": "matched", "matched_category": matched_label})
         try:
             playlist_pool = yt.get_mood_playlists(matched_params)[:5]
+            steps.append({"step": 3, "action": "fetch_mood_playlists", "status": "ok", "count": len(playlist_pool)})
         except Exception as exc:
             log.warning("get_mood_playlists failed: %s", exc)
             playlist_pool = []
+            steps.append({"step": 3, "action": "fetch_mood_playlists", "status": "failed", "error": str(exc)})
 
     # Step 4 — Gather tracks from playlists
-    lines.append("**Step 4:** Sampling tracks from mood playlists…")
     all_tracks: list[dict] = []
     seen_vids: set[str] = set()
 
@@ -650,7 +614,7 @@ async def tool_build_smart_playlist(
         if len(all_tracks) >= count * 3:
             break
 
-    # Energy heuristic — short tracks = high energy, long = mellow
+    # Energy heuristic
     energy_filter: list[dict] = []
     for track in all_tracks:
         dur = track.get("duration_seconds") or 0
@@ -659,18 +623,21 @@ async def tool_build_smart_playlist(
         elif energy_level == "low" and dur > 240:
             energy_filter.append(track)
         else:
-            energy_filter.append(track)  # medium: no filter
+            energy_filter.append(track)
 
     selected = energy_filter[:count]
+    steps.append({"step": 4, "action": "sample_and_filter", "status": "ok", "tracks_selected": len(selected)})
 
-    lines.append(f"**Step 5:** Selected **{len(selected)}** tracks\n")
-    lines.append("### 🎶 Track List\n")
-    for i, track in enumerate(selected, 1):
-        lines.append(_fmt_song(track, i))
+    result: dict[str, Any] = {
+        "mood": mood,
+        "genre": genre or None,
+        "energy_level": energy_level,
+        "steps": steps,
+        "tracks": [_song_to_dict(t) for t in selected],
+    }
 
     # Optional save
     if save_playlist and selected:
-        lines.append("\n**Step 6:** Creating playlist on YouTube Music…")
         pl_title = title or f"{mood.title()} {genre.title()} Mix".strip()
         pl_desc = f"Smart playlist: {mood} {genre}, {energy_level} energy. Created by YouTube Music MCP."
         try:
@@ -678,11 +645,13 @@ async def tool_build_smart_playlist(
             pl_id = yt.create_playlist(title=pl_title, description=pl_desc, privacy_status="PRIVATE")
             yt.add_playlist_items(pl_id, video_ids)
             _cache_invalidate("library_playlists")
-            lines.append(f"✅ Saved as **\"{pl_title}\"** (ID: `{pl_id}`)")
+            result["saved_playlist"] = {"playlistId": pl_id, "title": pl_title}
+            steps.append({"step": 5, "action": "save_playlist", "status": "ok", "playlistId": pl_id})
         except Exception as exc:
-            lines.append(f"❌ Could not save playlist: {exc}")
+            result["saved_playlist"] = None
+            steps.append({"step": 5, "action": "save_playlist", "status": "failed", "error": str(exc)})
 
-    return [TextContent(type="text", text="\n".join(lines))]
+    return _json_response(result)
 
 
 async def tool_explore_moods() -> list[TextContent]:
@@ -693,15 +662,14 @@ async def tool_explore_moods() -> list[TextContent]:
     except Exception as exc:
         raise SearchError(f"Could not fetch mood categories: {exc}") from exc
 
-    lines = ["## 🎨 YouTube Music — Moods & Genres\n"]
+    sections: list[dict[str, Any]] = []
     for section, categories in mood_cats.items():
-        lines.append(f"### {section}")
-        for cat in categories:
-            lines.append(f"  • **{cat.get('title', 'Unknown')}**")
-        lines.append("")
+        sections.append({
+            "section": section,
+            "categories": [cat.get("title", "Unknown") for cat in categories],
+        })
 
-    lines.append("_Use `build_smart_playlist` with any mood/genre name above._")
-    return [TextContent(type="text", text="\n".join(lines))]
+    return _json_response({"mood_categories": sections})
 
 
 async def tool_get_charts(country: str = "ZZ") -> list[TextContent]:
@@ -712,34 +680,30 @@ async def tool_get_charts(country: str = "ZZ") -> list[TextContent]:
     except Exception as exc:
         raise SearchError(f"Could not fetch charts: {exc}") from exc
 
-    lines = [f"## 📈 YouTube Music Charts {'(Global)' if country == 'ZZ' else f'({country})'}\n"]
+    result: dict[str, Any] = {"country": country}
 
-    # Videos / trending songs
     videos = charts.get("videos", {})
     if videos:
         items = videos.get("items", [])[:10]
-        lines.append("### 🔥 Trending Songs")
-        for i, v in enumerate(items, 1):
-            title = v.get("title", "Unknown")
-            artists = v.get("artists") or []
-            artist = _artist_name(artists[0]) if artists else "Unknown"
-            lines.append(f"{i}. **{title}** — {artist}")
-        lines.append("")
+        result["trending_songs"] = [
+            {
+                "rank": i,
+                "title": v.get("title", "Unknown"),
+                "artist": _artist_name((v.get("artists") or [{}])[0]) if v.get("artists") else "Unknown",
+                "videoId": v.get("videoId"),
+            }
+            for i, v in enumerate(items, 1)
+        ]
 
-    # Artists
-    artists = charts.get("artists", {})
-    if artists:
-        items = artists.get("items", [])[:10]
-        lines.append("### 🎤 Trending Artists")
-        for i, a in enumerate(items, 1):
-            name = a.get("title", "Unknown")
-            lines.append(f"{i}. {name}")
-        lines.append("")
+    artists_data = charts.get("artists", {})
+    if artists_data:
+        items = artists_data.get("items", [])[:10]
+        result["trending_artists"] = [
+            {"rank": i, "name": a.get("title", "Unknown")}
+            for i, a in enumerate(items, 1)
+        ]
 
-    if len(lines) == 2:
-        lines.append("_No chart data available for this region._")
-
-    return [TextContent(type="text", text="\n".join(lines))]
+    return _json_response(result)
 
 
 async def tool_get_listening_insights() -> list[TextContent]:
@@ -749,15 +713,14 @@ async def tool_get_listening_insights() -> list[TextContent]:
     try:
         history = yt.get_history()
     except Exception as exc:
-        return [TextContent(type="text", text=f"⚠️ Could not fetch history: {exc}\n_History requires authentication._")]
+        return _json_response({"error": f"Could not fetch history: {exc}", "hint": "History requires authentication."})
 
     if not history:
-        return [TextContent(type="text", text="📊 No listening history found.")]
+        return _json_response({"total_tracks": 0, "top_artists": [], "top_albums": [], "diversity_score": 0})
 
     # Analyze
     artist_counts: Counter = Counter()
     album_counts: Counter = Counter()
-    title_words: Counter = Counter()
 
     for track in history:
         artists = track.get("artists") or []
@@ -767,69 +730,50 @@ async def tool_get_listening_insights() -> list[TextContent]:
         album = album_obj.get("name", "") if isinstance(album_obj, dict) else ""
         if album:
             album_counts[album] += 1
-        title = track.get("title", "")
-        for word in title.lower().split():
-            if len(word) > 4:
-                title_words[word] += 1
 
     total = len(history)
-    top_artists = artist_counts.most_common(5)
-    top_albums = album_counts.most_common(3)
-
-    lines = [
-        "## 🔍 Listening Insights",
-        f"_Analyzing your {total} most recent tracks_\n",
-        "### 🎤 Most Listened Artists (recently)",
-    ]
-    for artist, cnt in top_artists:
-        lines.append(f"  • **{artist}** — {cnt} plays")
-
-    if top_albums:
-        lines.append("\n### 💿 Most Listened Albums (recently)")
-        for album, cnt in top_albums:
-            lines.append(f"  • **{album}** — {cnt} plays")
-
-    # Diversity score
     unique_artists = len(artist_counts)
     diversity = unique_artists / total * 100 if total else 0
     mood_word = "varied" if diversity > 50 else ("balanced" if diversity > 25 else "focused")
-    lines.append("\n### 📊 Listening Profile")
-    lines.append(f"  • **Diversity score:** {diversity:.0f}% ({mood_word} taste)")
-    lines.append(f"  • **Unique artists:** {unique_artists} out of {total} recent plays")
 
-    # Repeat listener insight
-    repeat_artist = top_artists[0][0] if top_artists else "N/A"
-    repeat_cnt = top_artists[0][1] if top_artists else 0
-    if repeat_cnt > total * 0.2:
-        lines.append(f"\n💡 **Insight:** You're in a **{repeat_artist}** phase right now — {repeat_cnt} of your last {total} plays!")
+    top_artist_name = artist_counts.most_common(1)[0][0] if artist_counts else None
+    top_artist_plays = artist_counts.most_common(1)[0][1] if artist_counts else 0
+    if top_artist_plays > total * 0.2:
+        insight = f"You're in a {top_artist_name} phase — {top_artist_plays} of your last {total} plays."
     else:
-        lines.append(f"\n💡 **Insight:** Your recent listening is eclectic — you've spread plays across {unique_artists} artists.")
+        insight = f"Your recent listening is eclectic — spread across {unique_artists} artists."
 
-    return [TextContent(type="text", text="\n".join(lines))]
+    return _json_response({
+        "total_tracks": total,
+        "unique_artists": unique_artists,
+        "diversity_score": round(diversity, 1),
+        "diversity_label": mood_word,
+        "top_artists": [{"artist": a, "plays": c} for a, c in artist_counts.most_common(5)],
+        "top_albums": [{"album": a, "plays": c} for a, c in album_counts.most_common(3)],
+        "insight": insight,
+    })
 
 
 async def tool_get_server_info() -> list[TextContent]:
     cached_songs = _cache_get("library_songs")
-    lib_size = f"{len(cached_songs):,}" if cached_songs else "not cached"
+    lib_size = len(cached_songs) if cached_songs else None
     cached_pls = _cache_get("library_playlists")
-    pl_size = f"{len(cached_pls):,}" if cached_pls else "not cached"
+    pl_size = len(cached_pls) if cached_pls else None
 
-    lines = [
-        "## ⚙️ YouTube Music MCP Server\n",
-        "**Version:** 2.0.0",
-        f"**Auth method:** `{_auth_method}`",
-        f"**ytmusicapi version:** {ytmusicapi.__version__}",
-        f"**Cache TTL:** {CACHE_TTL}s",
-        f"**Library songs (cache):** {lib_size}",
-        f"**Playlists (cache):** {pl_size}",
-        "",
-        "**Capabilities:**",
-        "  • 15 Tools  |  3 Resources  |  3 Prompts",
-        "  • Async parallel search  |  TTL caching",
-        "  • Real YTMusic radio similarity engine",
-        "  • Mood & genre explorer  |  Charts  |  Insights",
-    ]
-    return [TextContent(type="text", text="\n".join(lines))]
+    return _json_response({
+        "version": "2.0.0",
+        "auth_method": _auth_method,
+        "ytmusicapi_version": ytmusicapi.__version__,
+        "cache_ttl_seconds": CACHE_TTL,
+        "cached_library_songs": lib_size,
+        "cached_playlists": pl_size,
+        "capabilities": {
+            "tools": 15,
+            "resources": 3,
+            "prompts": 3,
+            "features": ["async_parallel_search", "ttl_caching", "radio_similarity", "mood_genre_explorer", "charts", "listening_insights"],
+        },
+    })
 
 
 # ─────────────────────────────────────────────
@@ -1097,12 +1041,12 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
 
     except (AuthError, SearchError, PlaylistError) as exc:
         log.error("Domain error in %s: %s", name, exc)
-        return [TextContent(type="text", text=f"❌ **{type(exc).__name__}:** {exc}")]
+        return _json_response({"error": str(exc), "error_type": type(exc).__name__})
     except ValueError as exc:
-        return [TextContent(type="text", text=f"⚠️ **Invalid input:** {exc}")]
+        return _json_response({"error": str(exc), "error_type": "ValueError"})
     except Exception as exc:
         log.exception("Unexpected error in tool %s", name)
-        return [TextContent(type="text", text=f"❌ **Unexpected error in `{name}`:** {exc}")]
+        return _json_response({"error": str(exc), "error_type": "UnexpectedError"})
 
 
 # ── Resources ──────────────────────────────────
