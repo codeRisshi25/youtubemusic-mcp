@@ -682,25 +682,38 @@ async def tool_get_charts(country: str = "ZZ") -> list[TextContent]:
 
     result: dict[str, Any] = {"country": country}
 
-    videos = charts.get("videos", {})
-    if videos:
+    # videos is a list of playlist references (e.g. "Daily Top Music Videos")
+    videos = charts.get("videos", [])
+    if isinstance(videos, list) and videos:
+        result["trending_playlists"] = [
+            {"title": v.get("title", "Unknown"), "playlistId": v.get("playlistId")}
+            for v in videos[:10] if isinstance(v, dict)
+        ]
+    elif isinstance(videos, dict):
         items = videos.get("items", [])[:10]
-        result["trending_songs"] = [
-            {
-                "rank": i,
-                "title": v.get("title", "Unknown"),
-                "artist": _artist_name((v.get("artists") or [{}])[0]) if v.get("artists") else "Unknown",
-                "videoId": v.get("videoId"),
-            }
-            for i, v in enumerate(items, 1)
+        result["trending_playlists"] = [
+            {"title": v.get("title", "Unknown"), "playlistId": v.get("playlistId")}
+            for v in items if isinstance(v, dict)
         ]
 
-    artists_data = charts.get("artists", {})
-    if artists_data:
-        items = artists_data.get("items", [])[:10]
+    # artists is a flat list of artist dicts
+    artists_data = charts.get("artists", [])
+    if isinstance(artists_data, list) and artists_data:
+        result["trending_artists"] = [
+            {
+                "rank": a.get("rank", i),
+                "name": a.get("title", "Unknown"),
+                "browseId": a.get("browseId"),
+                "subscribers": a.get("subscribers"),
+                "trend": a.get("trend"),
+            }
+            for i, a in enumerate(artists_data[:20], 1) if isinstance(a, dict)
+        ]
+    elif isinstance(artists_data, dict):
+        items = artists_data.get("items", [])[:20]
         result["trending_artists"] = [
             {"rank": i, "name": a.get("title", "Unknown")}
-            for i, a in enumerate(items, 1)
+            for i, a in enumerate(items, 1) if isinstance(a, dict)
         ]
 
     return _json_response(result)

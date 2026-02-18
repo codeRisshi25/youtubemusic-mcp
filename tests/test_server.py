@@ -70,18 +70,15 @@ MOCK_MOOD_PLAYLISTS = [
 ]
 
 MOCK_CHARTS = {
-    "videos": {
-        "items": [
-            {"title": "Top Song 1", "artists": [{"name": "Artist A"}]},
-            {"title": "Top Song 2", "artists": [{"name": "Artist B"}]},
-        ]
-    },
-    "artists": {
-        "items": [
-            {"title": "Trending Artist 1"},
-            {"title": "Trending Artist 2"},
-        ]
-    },
+    "countries": {"selected": "ZZ", "options": ["US", "GB"]},
+    "videos": [
+        {"title": "Daily Top Music Videos - Global", "playlistId": "PLtop1"},
+        {"title": "Daily Top Music Videos - US", "playlistId": "PLtop2"},
+    ],
+    "artists": [
+        {"title": "Trending Artist 1", "browseId": "UC1", "subscribers": "10M", "rank": 1, "trend": "up"},
+        {"title": "Trending Artist 2", "browseId": "UC2", "subscribers": "5M", "rank": 2, "trend": "neutral"},
+    ],
 }
 
 
@@ -372,7 +369,7 @@ class TestTools:
         result = asyncio.run(server.tool_get_charts("ZZ"))
         data = json.loads(result[0].text)
         assert data["country"] == "ZZ"
-        assert data["trending_songs"][0]["title"] == "Top Song 1"
+        assert data["trending_playlists"][0]["title"] == "Daily Top Music Videos - Global"
         assert data["trending_artists"][0]["name"] == "Trending Artist 1"
         mock_yt.get_charts.assert_called_once_with(country="ZZ")
 
