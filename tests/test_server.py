@@ -127,31 +127,73 @@ def mock_yt(tmp_path):
 
 class TestAuth:
     def test_raises_auth_error_when_no_files(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(server, "_OAUTH_PATH", tmp_path / "oauth.json")
+        monkeypatch.setattr(server, "_BROWSER_PATH", tmp_path / "browser.json")
+        monkeypatch.setattr(server, "_COOKIE_PATH", tmp_path / "cookie.txt")
         with pytest.raises(server.AuthError, match="No auth file"):
             server.get_yt()
 
     def test_uses_oauth_when_present(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        (tmp_path / "oauth.json").write_text("{}")
+        oauth_path = tmp_path / "oauth.json"
+        oauth_path.write_text("{}")
+        monkeypatch.setattr(server, "_OAUTH_PATH", oauth_path)
+        monkeypatch.setattr(server, "_BROWSER_PATH", tmp_path / "browser.json")
+        monkeypatch.setattr(server, "_COOKIE_PATH", tmp_path / "cookie.txt")
         with patch("server.YTMusic") as MockYT:
             MockYT.return_value = MagicMock()
             server.get_yt()
-            MockYT.assert_called_once_with("oauth.json")
+            MockYT.assert_called_once_with(str(oauth_path))
             assert server._auth_method == "oauth"
 
     def test_uses_browser_when_no_oauth(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        (tmp_path / "browser.json").write_text("{}")
+        browser_path = tmp_path / "browser.json"
+        browser_path.write_text("{}")
+        monkeypatch.setattr(server, "_OAUTH_PATH", tmp_path / "oauth.json")
+        monkeypatch.setattr(server, "_BROWSER_PATH", browser_path)
+        monkeypatch.setattr(server, "_COOKIE_PATH", tmp_path / "cookie.txt")
         with patch("server.YTMusic") as MockYT:
             MockYT.return_value = MagicMock()
             server.get_yt()
-            MockYT.assert_called_once_with("browser.json")
+            MockYT.assert_called_once_with(str(browser_path))
             assert server._auth_method == "browser"
 
+    def test_auto_generates_browser_json_from_cookie(self, tmp_path, monkeypatch):
+        """cookie.txt should auto-generate browser.json when neither oauth nor browser exist."""
+        cookie_path = tmp_path / "cookie.txt"
+        browser_path = tmp_path / "browser.json"
+        cookie_path.write_text("SAPISID=abc123; SID=xyz456; OTHER=val")
+        monkeypatch.setattr(server, "_OAUTH_PATH", tmp_path / "oauth.json")
+        monkeypatch.setattr(server, "_BROWSER_PATH", browser_path)
+        monkeypatch.setattr(server, "_COOKIE_PATH", cookie_path)
+        with patch("server.YTMusic") as MockYT:
+            MockYT.return_value = MagicMock()
+            server.get_yt()
+            assert browser_path.exists()
+            MockYT.assert_called_once_with(str(browser_path))
+            assert "cookie" in server._auth_method.lower()
+            # Verify the generated browser.json has the right keys
+            import json
+            data = json.loads(browser_path.read_text())
+            assert data["Cookie"] == "SAPISID=abc123; SID=xyz456; OTHER=val"
+            assert "authorization" in data  # SAPISIDHASH required by ytmusicapi
+            assert data["authorization"].startswith("SAPISIDHASH ")
+
+    def test_cookie_txt_rejects_invalid_cookies(self, tmp_path, monkeypatch):
+        """cookie.txt without SAPISID/SID should raise AuthError."""
+        cookie_path = tmp_path / "cookie.txt"
+        cookie_path.write_text("RANDOM_COOKIE=somevalue; OTHER=thing")
+        monkeypatch.setattr(server, "_OAUTH_PATH", tmp_path / "oauth.json")
+        monkeypatch.setattr(server, "_BROWSER_PATH", tmp_path / "browser.json")
+        monkeypatch.setattr(server, "_COOKIE_PATH", cookie_path)
+        with pytest.raises(server.AuthError, match="does not look like a valid"):
+            server.get_yt()
+
     def test_singleton_returns_same_instance(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        (tmp_path / "oauth.json").write_text("{}")
+        oauth_path = tmp_path / "oauth.json"
+        oauth_path.write_text("{}")
+        monkeypatch.setattr(server, "_OAUTH_PATH", oauth_path)
+        monkeypatch.setattr(server, "_BROWSER_PATH", tmp_path / "browser.json")
+        monkeypatch.setattr(server, "_COOKIE_PATH", tmp_path / "cookie.txt")
         with patch("server.YTMusic") as MockYT:
             MockYT.return_value = MagicMock()
             yt1 = server.get_yt()

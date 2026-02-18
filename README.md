@@ -55,37 +55,40 @@ Implements the full MCP primitive set — **Tools, Resources, and Prompts** — 
 **15 Tools · 3 Resources · 3 Prompts — full MCP primitive coverage:**
 
 ### 🛠️ Tools
-| Tool | Description |
-|------|-------------|
-| `get_liked_songs_count` | Total song count (bypasses YT display limit) |
-| `get_library_stats` | Songs, artists, playlists + detailed breakdown |
-| `search_music` | Search with type filter (songs/albums/artists/playlists/videos) |
-| `get_top_artists` | Ranked artists with visual progress bars |
-| `find_similar_songs` ⭐ | **Real** YTMusic radio engine — not a fake artist search |
-| `get_recommendations` ⭐ | Async-parallel fetch across top 5 artists |
-| `create_playlist_from_songs` | Create & populate playlist from search queries |
-| `list_playlists` | All your playlists with IDs and song counts |
-| `get_playlist_songs` | Browse songs in any playlist |
-| `add_songs_to_playlist` | Add songs to existing playlist |
-| `build_smart_playlist` ⭐ | **Agentic** 6-step pipeline: mood→category→tracks→filter→save |
-| `explore_moods` | Discover all YTMusic Moods & Genres categories |
-| `get_charts` | Global or country-specific trending charts |
-| `get_listening_insights` | History analysis: patterns, diversity score, insights |
-| `get_server_info` | Auth method, cache state, version, capabilities |
+
+| Tool                         | Description                                                     |
+| ---------------------------- | --------------------------------------------------------------- |
+| `get_liked_songs_count`      | Total song count (bypasses YT display limit)                    |
+| `get_library_stats`          | Songs, artists, playlists + detailed breakdown                  |
+| `search_music`               | Search with type filter (songs/albums/artists/playlists/videos) |
+| `get_top_artists`            | Ranked artists with visual progress bars                        |
+| `find_similar_songs` ⭐      | **Real** YTMusic radio engine — not a fake artist search        |
+| `get_recommendations` ⭐     | Async-parallel fetch across top 5 artists                       |
+| `create_playlist_from_songs` | Create & populate playlist from search queries                  |
+| `list_playlists`             | All your playlists with IDs and song counts                     |
+| `get_playlist_songs`         | Browse songs in any playlist                                    |
+| `add_songs_to_playlist`      | Add songs to existing playlist                                  |
+| `build_smart_playlist` ⭐    | **Agentic** 6-step pipeline: mood→category→tracks→filter→save   |
+| `explore_moods`              | Discover all YTMusic Moods & Genres categories                  |
+| `get_charts`                 | Global or country-specific trending charts                      |
+| `get_listening_insights`     | History analysis: patterns, diversity score, insights           |
+| `get_server_info`            | Auth method, cache state, version, capabilities                 |
 
 ### 📦 Resources (passively readable by Claude)
-| Resource URI | Description |
-|---|---|
-| `library://songs` | Full library as structured JSON |
-| `library://artists` | Artist rankings with percentages |
+
+| Resource URI          | Description                      |
+| --------------------- | -------------------------------- |
+| `library://songs`     | Full library as structured JSON  |
+| `library://artists`   | Artist rankings with percentages |
 | `library://playlists` | All playlists as structured JSON |
 
 ### 💬 Prompts (guided conversation starters)
-| Prompt | Description |
-|---|---|
-| `weekly-discovery-mix` | Guided weekly music discovery workflow |
-| `mood-based-playlist` | Collaborative mood → playlist session |
-| `artist-deep-dive` | Full artist exploration + listening plan |
+
+| Prompt                 | Description                              |
+| ---------------------- | ---------------------------------------- |
+| `weekly-discovery-mix` | Guided weekly music discovery workflow   |
+| `mood-based-playlist`  | Collaborative mood → playlist session    |
+| `artist-deep-dive`     | Full artist exploration + listening plan |
 
 ---
 
@@ -127,25 +130,21 @@ pip install -e .
 
 Choose one authentication method:
 
-### Option A: Browser Cookies (Recommended)
+### Option A: Cookie File (Simplest — recommended)
 
 1. Visit [music.youtube.com](https://music.youtube.com) and log in
 2. Open Developer Tools (`F12`)
 3. Go to **Network** tab and refresh the page
-4. Find any POST request to `music.youtube.com`
-5. Right-click → Copy → Copy as cURL
-6. Extract the cookie string
-7. Run setup:
+4. Click any request → **Headers** → copy the full `cookie:` value
+5. Paste it into a file named `cookie.txt` in the project directory
+6. **Done!** The server auto-generates `browser.json` on first startup
 
 ```bash
-python3 -c "
-from ytmusicapi import setup
-headers_raw = '''PASTE YOUR HEADERS HERE'''
-setup(filepath='browser.json', headers_raw=headers_raw)
-"
+# Optional: validate cookies before starting the server
+python update_auth.py
 ```
 
-**Note:** Cookies may expire after 6-12 months. See [docs/AUTH_UPDATE.md](docs/AUTH_UPDATE.md) for simple update instructions.
+**Note:** Cookies typically last 6–24 months. When they expire, just paste fresh cookies into `cookie.txt` and restart.
 
 ### Option B: OAuth (Long-term)
 
@@ -196,6 +195,7 @@ See the [Features section](#features) above for a full table of all 15 tools.
 ### Agentic Highlights
 
 **`build_smart_playlist`** — the centrepiece agentic tool. Runs a 6-step pipeline inside a single tool call:
+
 ```
 Step 1: Fetch all Moods & Genres from YouTube Music
 Step 2: Match your mood keyword to a real category

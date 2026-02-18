@@ -15,6 +15,7 @@ Prompts   (3): weekly-discovery-mix  mood-based-playlist  artist-deep-dive
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -91,6 +92,78 @@ def _cache_invalidate(prefix: str = "") -> None:
 
 
 # ─────────────────────────────────────────────
+# Paths (relative to this script, not cwd)
+# ─────────────────────────────────────────────
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_OAUTH_PATH = _SCRIPT_DIR / "oauth.json"
+_BROWSER_PATH = _SCRIPT_DIR / "browser.json"
+_COOKIE_PATH = _SCRIPT_DIR / "cookie.txt"
+
+
+# ─────────────────────────────────────────────
+# Cookie → browser.json helper
+# ─────────────────────────────────────────────
+def _extract_sapisid(cookie_string: str) -> str:
+    """Extract SAPISID value from a raw cookie header string."""
+    for part in cookie_string.split(";"):
+        part = part.strip()
+        if part.startswith("SAPISID="):
+            return part.split("=", 1)[1]
+    raise AuthError(
+        "SAPISID not found in cookie string. "
+        "Copy the complete 'cookie:' header value from DevTools."
+    )
+
+
+def _generate_sapisidhash(sapisid: str) -> str:
+    """Generate a SAPISIDHASH authorization value.
+
+    ytmusicapi requires this header to classify the auth file as browser auth.
+    """
+    timestamp = int(time.time())
+    hash_input = f"{timestamp} {sapisid} https://music.youtube.com"
+    sha1 = hashlib.sha1(hash_input.encode()).hexdigest()
+    return f"SAPISIDHASH {timestamp}_{sha1}"
+
+
+def _build_browser_json_from_cookie(cookie_path: Path, browser_path: Path) -> None:
+    """Read raw cookie string from cookie.txt and write browser.json.
+
+    Generates a fresh SAPISIDHASH (required by ytmusicapi to detect browser auth).
+    """
+    cookie_string = cookie_path.read_text().strip()
+    if not cookie_string:
+        raise AuthError("cookie.txt exists but is empty.")
+
+    # Sanity-check: must contain known YouTube cookies
+    if "SAPISID=" not in cookie_string or "SID=" not in cookie_string:
+        raise AuthError(
+            "cookie.txt does not look like a valid YouTube cookie string "
+            "(missing SAPISID or SID). Copy the full cookie header value "
+            "from your browser's DevTools Network tab."
+        )
+
+    sapisid = _extract_sapisid(cookie_string)
+    authorization = _generate_sapisidhash(sapisid)
+
+    browser_data = {
+        "User-Agent": (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        ),
+        "Accept": "*/*",
+        "Accept-Language": "en-US,en;q=0.5",
+        "X-Goog-AuthUser": "0",
+        "x-origin": "https://music.youtube.com",
+        "Cookie": cookie_string,
+        "authorization": authorization,
+    }
+
+    browser_path.write_text(json.dumps(browser_data, indent=2))
+    log.info("Generated %s from %s", browser_path.name, cookie_path.name)
+
+
+# ─────────────────────────────────────────────
 # YTMusic Singleton
 # ─────────────────────────────────────────────
 _ytmusic: YTMusic | None = None
@@ -102,21 +175,32 @@ def get_yt() -> YTMusic:
     if _ytmusic is not None:
         return _ytmusic
 
-    oauth_path = Path("oauth.json")
-    browser_path = Path("browser.json")
-
     try:
-        if oauth_path.exists():
-            _ytmusic = YTMusic(str(oauth_path))
+        # Priority 1: OAuth (auto-refreshing tokens)
+        if _OAUTH_PATH.exists():
+            _ytmusic = YTMusic(str(_OAUTH_PATH))
             _auth_method = "oauth"
-            log.info("Authenticated via OAuth")
-        elif browser_path.exists():
-            _ytmusic = YTMusic(str(browser_path))
+            log.info("Authenticated via OAuth (%s)", _OAUTH_PATH)
+
+        # Priority 2: cookie.txt present → always (re)generate browser.json
+        # This ensures fresh cookies always win over a potentially stale browser.json.
+        elif _COOKIE_PATH.exists():
+            log.info("Found %s — generating browser.json…", _COOKIE_PATH)
+            _build_browser_json_from_cookie(_COOKIE_PATH, _BROWSER_PATH)
+            _ytmusic = YTMusic(str(_BROWSER_PATH))
+            _auth_method = "browser (from cookie.txt)"
+            log.info("Authenticated via cookie.txt → browser.json")
+
+        # Priority 3: existing browser.json (no cookie.txt alongside it)
+        elif _BROWSER_PATH.exists():
+            _ytmusic = YTMusic(str(_BROWSER_PATH))
             _auth_method = "browser"
-            log.info("Authenticated via browser cookies")
+            log.info("Authenticated via browser cookies (%s)", _BROWSER_PATH)
+
         else:
             raise AuthError(
-                "No auth file found. Create oauth.json or browser.json — see README.md."
+                "No auth file found. Place a cookie.txt (easiest), "
+                "browser.json, or oauth.json in the project directory — see README.md."
             )
         return _ytmusic
     except AuthError:
@@ -249,7 +333,7 @@ async def tool_search_music(query: str, filter_type: str = "all", limit: int = 1
             if artist:
                 line += f" — {artist}"
             if album:
-                line += f" _(_{album}_)_"
+                line += f" (_Album: {album}_)"
             out.append(line)
         out.append("")
 

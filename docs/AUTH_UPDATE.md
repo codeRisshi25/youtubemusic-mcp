@@ -1,33 +1,31 @@
 # Authentication Update Guide
 
-When you see authentication errors (usually after 6 months), update your cookies:
+When you see authentication errors (usually after 6–24 months), update your cookies:
 
-## Quick Update (3 steps)
+## Quick Update (2 steps)
 
 1. **Get fresh cookies:**
-
    - Go to [music.youtube.com](https://music.youtube.com) (make sure you're logged in)
    - Press F12 → Network tab → Refresh page
-   - Click any request → Request Headers → Copy the entire `cookie:` value
+   - Click any request → Headers → Copy the entire `cookie:` value
 
 2. **Save to file:**
+   - Paste into `cookie.txt` in the project folder (overwrite the old contents)
+   - Restart the MCP server — it auto-generates `browser.json` on startup
 
-   - Create/open `cookie.txt` in the project folder
-   - Paste the cookie string
-   - Save and close
+That's it! No scripts required.
 
-3. **Run updater:**
-   ```bash
-   python update_auth.py
-   ```
+### Optional: validate before restarting
 
-That's it! The script will:
+```bash
+python update_auth.py
+```
 
-- Extract SAPISID from your cookies
-- Generate fresh authorization hash
-- Update `browser.json`
-- Test authentication
-- Delete `cookie.txt` for security
+The script will write `browser.json`, test the connection, and report success/failure.
+
+> **How it works:** The server (and `update_auth.py`) only stores Cookie + origin
+> headers. `ytmusicapi` regenerates the SAPISIDHASH internally on every request,
+> so no manual hash generation is needed.
 
 ## Alternative: OAuth (Auto-refreshing)
 
@@ -41,8 +39,8 @@ See `docs/OAUTH_SETUP.md` for detailed OAuth setup.
 
 ## Troubleshooting
 
-**"SAPISID not found"**: Make sure you copied the complete cookie string, not just part of it
+**"does not look like a valid YouTube cookie string"**: Make sure you copied the complete `cookie:` header value, not just part of it. It must contain `SAPISID=…` and `SID=…`.
 
-**"Auth works but playlist creation fails"**: Run `update_auth.py` again with fresh cookies
+**"Auth works but playlist creation fails"**: Paste fresh cookies into `cookie.txt` and restart.
 
-**Script not found**: Make sure you're in the project directory and venv is activated
+**Script not found**: Make sure you're in the project directory and venv is activated.
